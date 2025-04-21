@@ -16,6 +16,7 @@ import datetime
 from unittest import mock
 import pytest
 
+import duet
 from google.protobuf import any_pb2, timestamp_pb2
 from google.protobuf.text_format import Merge
 
@@ -25,10 +26,9 @@ from cirq_google.api import v1, v2
 from cirq_google.engine import util
 from cirq_google.cloud import quantum
 from cirq_google.engine.engine import EngineContext
-from cirq_google.engine.test_utils import uses_async_mock
 
 
-@pytest.fixture(scope='session', autouse=True)
+@pytest.fixture(scope='module', autouse=True)
 def mock_grpc_client():
     with mock.patch(
         'cirq_google.engine.engine_client.quantum.QuantumEngineServiceClient'
@@ -71,7 +71,6 @@ def test_create_time():
     )
 
 
-@uses_async_mock
 @mock.patch('cirq_google.engine.engine_client.EngineClient.get_job_async')
 def test_update_time(get_job):
     job = cg.EngineJob('a', 'b', 'steve', EngineContext())
@@ -84,7 +83,6 @@ def test_update_time(get_job):
     get_job.assert_called_once_with('a', 'b', 'steve', False)
 
 
-@uses_async_mock
 @mock.patch('cirq_google.engine.engine_client.EngineClient.get_job_async')
 def test_description(get_job):
     job = cg.EngineJob(
@@ -96,7 +94,6 @@ def test_description(get_job):
     get_job.assert_called_once_with('a', 'b', 'steve', False)
 
 
-@uses_async_mock
 @mock.patch('cirq_google.engine.engine_client.EngineClient.set_job_description_async')
 def test_set_description(set_job_description):
     job = cg.EngineJob('a', 'b', 'steve', EngineContext())
@@ -116,7 +113,6 @@ def test_labels():
     assert job.labels() == {'t': '1'}
 
 
-@uses_async_mock
 @mock.patch('cirq_google.engine.engine_client.EngineClient.set_job_labels_async')
 def test_set_labels(set_job_labels):
     job = cg.EngineJob('a', 'b', 'steve', EngineContext())
@@ -129,7 +125,6 @@ def test_set_labels(set_job_labels):
     set_job_labels.assert_called_with('a', 'b', 'steve', {})
 
 
-@uses_async_mock
 @mock.patch('cirq_google.engine.engine_client.EngineClient.add_job_labels_async')
 def test_add_labels(add_job_labels):
     job = cg.EngineJob('a', 'b', 'steve', EngineContext(), _job=quantum.QuantumJob(labels={}))
@@ -144,7 +139,6 @@ def test_add_labels(add_job_labels):
     add_job_labels.assert_called_with('a', 'b', 'steve', {'a': '2', 'b': '1'})
 
 
-@uses_async_mock
 @mock.patch('cirq_google.engine.engine_client.EngineClient.remove_job_labels_async')
 def test_remove_labels(remove_job_labels):
     job = cg.EngineJob(
@@ -178,7 +172,6 @@ def test_processor_ids():
     assert job.processor_ids() == ['p']
 
 
-@uses_async_mock
 @mock.patch('cirq_google.engine.engine_client.EngineClient.get_job_async')
 def test_status(get_job):
     qjob = quantum.QuantumJob(
@@ -224,7 +217,6 @@ def test_failure_with_no_error():
     assert not job.failure()
 
 
-@uses_async_mock
 @mock.patch('cirq_google.engine.engine_client.EngineClient.get_job_async')
 def test_get_repetitions_and_sweeps(get_job):
     job = cg.EngineJob('a', 'b', 'steve', EngineContext())
@@ -239,7 +231,6 @@ def test_get_repetitions_and_sweeps(get_job):
     get_job.assert_called_once_with('a', 'b', 'steve', True)
 
 
-@uses_async_mock
 @mock.patch('cirq_google.engine.engine_client.EngineClient.get_job_async')
 def test_get_repetitions_and_sweeps_v1(get_job):
     job = cg.EngineJob('a', 'b', 'steve', EngineContext())
@@ -254,7 +245,6 @@ def test_get_repetitions_and_sweeps_v1(get_job):
         job.get_repetitions_and_sweeps()
 
 
-@uses_async_mock
 @mock.patch('cirq_google.engine.engine_client.EngineClient.get_job_async')
 def test_get_repetitions_and_sweeps_unsupported(get_job):
     job = cg.EngineJob('a', 'b', 'steve', EngineContext())
@@ -323,7 +313,6 @@ def test_get_calibration(get_calibration):
     get_calibration.assert_called_once_with('a', 'p', 123)
 
 
-@uses_async_mock
 @mock.patch('cirq_google.engine.engine_client.EngineClient.get_calibration_async')
 def test_calibration__with_no_calibration(get_calibration):
     job = cg.EngineJob(
@@ -341,7 +330,6 @@ def test_calibration__with_no_calibration(get_calibration):
     assert not get_calibration.called
 
 
-@uses_async_mock
 @mock.patch('cirq_google.engine.engine_client.EngineClient.cancel_job_async')
 def test_cancel(cancel_job):
     job = cg.EngineJob('a', 'b', 'steve', EngineContext())
@@ -349,7 +337,6 @@ def test_cancel(cancel_job):
     cancel_job.assert_called_once_with('a', 'b', 'steve')
 
 
-@uses_async_mock
 @mock.patch('cirq_google.engine.engine_client.EngineClient.delete_job_async')
 def test_delete(delete_job):
     job = cg.EngineJob('a', 'b', 'steve', EngineContext())
@@ -518,7 +505,6 @@ results: [{
 UPDATE_TIME = datetime.datetime.now(tz=datetime.timezone.utc)
 
 
-@uses_async_mock
 @mock.patch('cirq_google.engine.engine_client.EngineClient.get_job_results_async')
 def test_results(get_job_results):
     qjob = quantum.QuantumJob(
@@ -535,7 +521,6 @@ def test_results(get_job_results):
     get_job_results.assert_called_once_with('a', 'b', 'steve')
 
 
-@uses_async_mock
 @mock.patch('cirq_google.engine.engine_client.EngineClient.get_job_results_async')
 def test_results_iter(get_job_results):
     qjob = quantum.QuantumJob(
@@ -551,7 +536,6 @@ def test_results_iter(get_job_results):
     assert results[1] == 'q=1010'
 
 
-@uses_async_mock
 @mock.patch('cirq_google.engine.engine_client.EngineClient.get_job_results_async')
 def test_results_getitem(get_job_results):
     qjob = quantum.QuantumJob(
@@ -567,7 +551,51 @@ def test_results_getitem(get_job_results):
         _ = job[2]
 
 
-@uses_async_mock
+def test_receives_results_via_stream_returns_correct_results():
+    qjob = quantum.QuantumJob(
+        execution_status=quantum.ExecutionStatus(state=quantum.ExecutionStatus.State.SUCCESS),
+        update_time=UPDATE_TIME,
+    )
+    result_future = duet.completed_future(RESULTS)
+
+    job = cg.EngineJob(
+        'a', 'b', 'steve', EngineContext(), _job=qjob, job_result_future=result_future
+    )
+    data = job.results()
+
+    assert len(data) == 2
+    assert str(data[0]) == 'q=0110'
+    assert str(data[1]) == 'q=1010'
+
+
+def test_receives_job_via_stream_raises_and_updates_underlying_job():
+    expected_error_code = quantum.ExecutionStatus.Failure.Code.SYSTEM_ERROR
+    expected_error_message = 'system error'
+    qjob = quantum.QuantumJob(
+        execution_status=quantum.ExecutionStatus(
+            state=quantum.ExecutionStatus.State.SUCCESS,
+            failure=quantum.ExecutionStatus.Failure(
+                error_code=expected_error_code, error_message=expected_error_message
+            ),
+        ),
+        update_time=UPDATE_TIME,
+    )
+    result_future = duet.completed_future(qjob)
+
+    job = cg.EngineJob(
+        'a', 'b', 'steve', EngineContext(), _job=qjob, job_result_future=result_future
+    )
+    qjob.execution_status.state = quantum.ExecutionStatus.State.FAILURE
+
+    with pytest.raises(RuntimeError):
+        job.results()
+    actual_error_code, actual_error_message = job.failure()
+
+    # Checks that the underlying job has been updated by checking failure information.
+    assert actual_error_code == expected_error_code.name
+    assert actual_error_message == expected_error_message
+
+
 @mock.patch('cirq_google.engine.engine_client.EngineClient.get_job_results_async')
 def test_batched_results(get_job_results):
     qjob = quantum.QuantumJob(
@@ -595,7 +623,6 @@ def test_batched_results(get_job_results):
     assert str(data[1][1]) == 'q=1001'
 
 
-@uses_async_mock
 @mock.patch('cirq_google.engine.engine_client.EngineClient.get_job_results_async')
 def test_batched_results_not_a_batch(get_job_results):
     qjob = quantum.QuantumJob(
@@ -608,7 +635,6 @@ def test_batched_results_not_a_batch(get_job_results):
         job.batched_results()
 
 
-@uses_async_mock
 @mock.patch('cirq_google.engine.engine_client.EngineClient.get_job_results_async')
 def test_calibration_results(get_job_results):
     qjob = quantum.QuantumJob(
@@ -628,7 +654,6 @@ def test_calibration_results(get_job_results):
     assert data[0].metrics['theta'] == {(cirq.GridQubit(0, 0), cirq.GridQubit(0, 1)): [0.9999]}
 
 
-@uses_async_mock
 @mock.patch('cirq_google.engine.engine_client.EngineClient.get_job_results_async')
 def test_calibration_defaults(get_job_results):
     qjob = quantum.QuantumJob(
@@ -649,7 +674,6 @@ def test_calibration_defaults(get_job_results):
     assert len(data[0].metrics) == 0
 
 
-@uses_async_mock
 @mock.patch('cirq_google.engine.engine_client.EngineClient.get_job_results_async')
 def test_calibration_results_not_a_calibration(get_job_results):
     qjob = quantum.QuantumJob(
@@ -662,7 +686,6 @@ def test_calibration_results_not_a_calibration(get_job_results):
         job.calibration_results()
 
 
-@uses_async_mock
 @mock.patch('cirq_google.engine.engine_client.EngineClient.get_job_results_async')
 def test_results_len(get_job_results):
     qjob = quantum.QuantumJob(
@@ -675,7 +698,6 @@ def test_results_len(get_job_results):
     assert len(job) == 2
 
 
-@uses_async_mock
 @mock.patch('cirq_google.engine.engine_client.EngineClient.get_job_async')
 def test_timeout(get_job):
     qjob = quantum.QuantumJob(

@@ -14,6 +14,7 @@
 """Tests for Heatmap."""
 
 import pathlib
+import shutil
 import string
 from tempfile import mkdtemp
 
@@ -31,6 +32,14 @@ from cirq.vis import heatmap
 def ax():
     figure = mpl.figure.Figure()
     return figure.add_subplot(111)
+
+
+def test_default_ax():
+    row_col_list = ((0, 5), (8, 1), (7, 0), (13, 5), (1, 6), (3, 2), (2, 8))
+    test_value_map = {
+        grid_qubit.GridQubit(row, col): np.random.random() for (row, col) in row_col_list
+    }
+    _, _ = heatmap.Heatmap(test_value_map).plot()
 
 
 @pytest.mark.parametrize('tuple_keys', [True, False])
@@ -60,6 +69,8 @@ def test_two_qubit_heatmap(ax):
     title = "Two Qubit Interaction Heatmap"
     heatmap.TwoQubitInteractionHeatmap(value_map, title=title).plot(ax)
     assert ax.get_title() == title
+    # Test default axis
+    heatmap.TwoQubitInteractionHeatmap(value_map, title=title).plot()
 
 
 def test_invalid_args():
@@ -97,17 +108,15 @@ def test_cell_colors(ax, colormap_name):
     )
     _, mesh = random_heatmap.plot(ax)
 
-    colormap = mpl.cm.get_cmap(colormap_name)
+    colormap = mpl.colormaps[colormap_name]
     for path, facecolor in zip(mesh.get_paths(), mesh.get_facecolors()):
         vertices = path.vertices[0:4]
         row = int(round(np.mean([v[1] for v in vertices])))
         col = int(round(np.mean([v[0] for v in vertices])))
         value = test_row_col_map[(row, col)]
         color_scale = (value - vmin) / (vmax - vmin)
-        if color_scale < 0.0:
-            color_scale = 0.0
-        if color_scale > 1.0:
-            color_scale = 1.0
+        color_scale = max(color_scale, 0.0)
+        color_scale = min(color_scale, 1.0)
         expected_color = np.array(colormap(color_scale))
         assert np.all(np.isclose(facecolor, expected_color))
 
@@ -218,7 +227,7 @@ def test_non_float_values(ax, format_string):
 
     _, mesh = random_heatmap.plot(ax)
 
-    colormap = mpl.cm.get_cmap(colormap_name)
+    colormap = mpl.colormaps[colormap_name]
     for path, facecolor in zip(mesh.get_paths(), mesh.get_facecolors()):
         vertices = path.vertices[0:4]
         row = int(round(np.mean([v[1] for v in vertices])))
@@ -309,6 +318,7 @@ def test_colorbar(ax, position, size, pad):
 
     plt.close(fig1)
     plt.close(fig2)
+    shutil.rmtree(tmp_dir)
 
 
 @pytest.mark.usefixtures('closefigures')

@@ -14,7 +14,8 @@
 
 """Utility methods for transforming matrices or vectors."""
 
-from typing import Tuple, Optional, Sequence, List, Union
+import dataclasses
+from typing import Any, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -27,6 +28,8 @@ from cirq.linalg import predicates
 # case. It is checked for using `is`, so it won't have a false positive if the
 # user provides a different np.array([]) value.
 RaiseValueErrorIfNotProvided: np.ndarray = np.array([])
+
+_NPY_MAXDIMS = 32  # Should be changed once numpy/numpy#5744 is resolved.
 
 
 def reflection_matrix_pow(reflection_matrix: np.ndarray, exponent: float):
@@ -168,11 +171,87 @@ def targeted_left_multiply(
     )  # type: ignore
 
 
+@dataclasses.dataclass
+class _SliceConfig:
+    axis: int
+    source_index: int
+    target_index: int
+
+
+@dataclasses.dataclass
+class _BuildFromSlicesArgs:
+    slices: Tuple[_SliceConfig, ...]
+    scale: complex
+
+
+def _build_from_slices(
+    args: Sequence[_BuildFromSlicesArgs], source: np.ndarray, out: np.ndarray
+) -> np.ndarray:
+    """Populates `out` from the desired slices of `source`.
+
+    This function is best described by example.
+
+    For instance in 3*3*3 3D space, one could take a cube array, take all the horizontal slices,
+    and add them up into the top slice leaving everything else zero. If the vertical axis was 1,
+    and the top was index=2, then this would be written as follows:
+
+        _build_from_slices(
+            [
+                _BuildFromSlicesArgs((_SliceConfig(axis=1, source_index=0, target_index=2),), 1),
+                _BuildFromSlicesArgs((_SliceConfig(axis=1, source_index=1, target_index=2),), 1),
+                _BuildFromSlicesArgs((_SliceConfig(axis=1, source_index=2, target_index=2),), 1),
+            ],
+            source,
+            out,
+        )
+
+    When multiple slices are included in the _BuildFromSlicesArgs, this means to take the
+    intersection of the source space and move it to the intersection of the target space. For
+    example, the following takes the bottom-left edge and moves it to the top-right, leaving all
+    other cells zero. Assume the lateral axis is 2 and right-most index thereof is 2:
+
+        _build_from_slices(
+            [
+                _BuildFromSlicesArgs(
+                    (
+                        _SliceConfig(axis=1, source_index=0, target_index=2),  # top
+                        _SliceConfig(axis=2, source_index=0, target_index=2),  # right
+                    ),
+                    scale=1,
+                ),
+            ],
+            source,
+            out,
+        )
+
+    This function is useful for optimizing multiplying a state by one or more one-hot matrices,
+    as is common when working with Kraus components. It is more efficient than using an einsum.
+
+    Args:
+        args: The list of slice configurations to sum up into the output.
+        source: The source tensor for the slice data.
+        out: An output tensor that is the same shape as the source.
+
+    Returns:
+        The output tensor.
+    """
+    d = len(source.shape)
+    out[...] = 0
+    for arg in args:
+        source_slice: List[Any] = [slice(None)] * d
+        target_slice: List[Any] = [slice(None)] * d
+        for sleis in arg.slices:
+            source_slice[sleis.axis] = sleis.source_index
+            target_slice[sleis.axis] = sleis.target_index
+        out[tuple(target_slice)] += arg.scale * source[tuple(source_slice)]
+    return out
+
+
 def targeted_conjugate_about(
     tensor: np.ndarray,
     target: np.ndarray,
     indices: Sequence[int],
-    conj_indices: Sequence[int] = None,
+    conj_indices: Optional[Sequence[int]] = None,
     buffer: Optional[np.ndarray] = None,
     out: Optional[np.ndarray] = None,
 ) -> np.ndarray:
@@ -322,20 +401,20 @@ def partial_trace(tensor: np.ndarray, keep_indices: Sequence[int]) -> np.ndarray
     ndim = tensor.ndim // 2
     if not all(tensor.shape[i] == tensor.shape[i + ndim] for i in range(ndim)):
         raise ValueError(
-            'Tensors must have shape (d_0,...,d_{{k-1}},d_0,...,'
-            'd_{{k-1}}) but had shape ({}).'.format(tensor.shape)
+            f'Tensors must have shape (d_0,...,d_{{k-1}},d_0,...,'
+            f'd_{{k-1}}) but had shape ({tensor.shape}).'
         )
     if not all(i < ndim for i in keep_indices):
         raise ValueError(
-            'keep_indices were {} but must be in first half, '
-            'i.e. have index less that {}.'.format(keep_indices, ndim)
+            f'keep_indices were {keep_indices} but must be in first half, '
+            f'i.e. have index less that {ndim}.'
         )
     keep_set = set(keep_indices)
     keep_map = dict(zip(keep_indices, sorted(keep_indices)))
     left_indices = [keep_map[i] if i in keep_set else i for i in range(ndim)]
     right_indices = [ndim + i if i in keep_set else i for i in left_indices]
     # TODO(#5757): remove type ignore when numpy has proper override signature.
-    return np.einsum(tensor, left_indices + right_indices)  # type: ignore
+    return np.einsum(tensor, left_indices + right_indices)
 
 
 class EntangledStateError(ValueError):
@@ -453,8 +532,8 @@ def sub_state_vector(
 
     if not np.log2(state_vector.size).is_integer():
         raise ValueError(
-            "Input state_vector of size {} does not represent a "
-            "state over qubits.".format(state_vector.size)
+            f"Input state_vector of size {state_vector.size} does not represent a "
+            "state over qubits."
         )
 
     n_qubits = int(np.log2(state_vector.size))
@@ -495,8 +574,7 @@ def sub_state_vector(
         return default
 
     raise EntangledStateError(
-        "Input state vector could not be factored into pure state over "
-        "indices {}".format(keep_indices)
+        f"Input state vector could not be factored into pure state over indices {keep_indices}"
     )
 
 
@@ -589,12 +667,12 @@ def factor_state_vector(
     slices1 = (slice(None),) * n_axes + pivot[n_axes:]
     slices2 = pivot[:n_axes] + (slice(None),) * (t1.ndim - n_axes)
     extracted = t1[slices1]
-    extracted = extracted / np.sum(abs(extracted) ** 2) ** 0.5
+    extracted = extracted / np.linalg.norm(extracted)
     remainder = t1[slices2]
-    remainder = remainder / np.sum(abs(remainder) ** 2) ** 0.5
+    remainder = remainder / (np.linalg.norm(remainder) * t1[pivot] / abs(t1[pivot]))
     if validate:
         t2 = state_vector_kronecker_product(extracted, remainder)
-        if not predicates.allclose_up_to_global_phase(t2, t1, atol=atol):
+        if not np.allclose(t2, t1, atol=atol):
             if not np.isclose(np.linalg.norm(t1), 1):
                 raise ValueError('Input state must be normalized.')
             raise EntangledStateError('The tensor cannot be factored by the requested axes')
@@ -669,3 +747,65 @@ def transpose_density_matrix_to_axis_order(t: np.ndarray, axes: Sequence[int]):
     """
     axes = list(axes) + [i + len(axes) for i in axes]
     return transpose_state_vector_to_axis_order(t, axes)
+
+
+def _volumes(shape: Sequence[int]) -> List[int]:
+    r"""Returns a list of the volume spanned by each dimension.
+
+    Given a shape=[d_0, d_1, .., d_n] the volume spanned by each dimension is
+        volume[i] = `\prod_{j=i+1}^n d_j`
+
+    Args:
+        shape: Sequence of the size of each dimension.
+
+    Returns:
+        Sequence of the volume spanned of each dimension.
+    """
+    volume = [0] * len(shape)
+    v = 1
+    for i in reversed(range(len(shape))):
+        volume[i] = v
+        v *= shape[i]
+    return volume
+
+
+def _coordinates_from_index(idx: int, volume: Sequence[int]) -> Sequence[int]:
+    ret = []
+    for v in volume:
+        ret.append(idx // v)
+        idx %= v
+    return tuple(ret)
+
+
+def _index_from_coordinates(s: Sequence[int], volume: Sequence[int]) -> int:
+    return np.dot(s, volume)
+
+
+def transpose_flattened_array(t: np.ndarray, shape: Sequence[int], axes: Sequence[int]):
+    """Transposes a flattened array.
+
+    Equivalent to np.transpose(t.reshape(shape), axes).reshape((-1,)).
+
+    Args:
+        t: flat array.
+        shape: the shape of `t` before flattening.
+        axes: permutation of range(len(shape)).
+
+    Returns:
+        Flattened transpose of `t`.
+    """
+    if len(t.shape) != 1:
+        t = t.reshape((-1,))
+    cur_volume = _volumes(shape)
+    new_volume = _volumes([shape[i] for i in axes])
+    ret = np.zeros_like(t)
+    for idx in range(t.shape[0]):
+        cell = _coordinates_from_index(idx, cur_volume)
+        new_cell = [cell[i] for i in axes]
+        ret[_index_from_coordinates(new_cell, new_volume)] = t[idx]
+    return ret
+
+
+def can_numpy_support_shape(shape: Sequence[int]) -> bool:
+    """Returns whether numpy supports the given shape or not numpy/numpy#5744."""
+    return len(shape) <= _NPY_MAXDIMS

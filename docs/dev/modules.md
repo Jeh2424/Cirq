@@ -51,8 +51,8 @@ To setup a new module follow these steps:
 
 1. Add the `<top_level_package>/json_resolver_cache.py` file
     ```python
-    @functools.lru_cache()  # coverage: ignore
-    def _class_resolver_dictionary() -> Dict[str, ObjectFactory]:  # coverage: ignore
+    @functools.lru_cache()  # pragma: no cover
+    def _class_resolver_dictionary() -> Dict[str, ObjectFactory]:  # pragma: no cover
         return {}
     ```
 2. Register the resolver cache - at _the end_ of the `<top_level_package>/__init__.py`:
@@ -89,7 +89,7 @@ To setup a new module follow these steps:
 
 You can run `check/pytest-changed-files` and that should execute the json_serialization_test.py as well.
 
-That's it! Now, you can follow the [Serialization guide](/cirq/dev/serialization.md) for adding and removing serializable objects.
+That's it! Now, you can follow the [Serialization guide](./serialization.md) for adding and removing serializable objects.
 
 # Utilities
 

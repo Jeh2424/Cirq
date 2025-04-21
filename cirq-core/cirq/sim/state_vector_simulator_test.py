@@ -35,9 +35,9 @@ def test_state_vector_trial_result_repr():
     expected_repr = (
         "cirq.StateVectorTrialResult("
         "params=cirq.ParamResolver({'s': 1}), "
-        "measurements={'m': np.array([[1]], dtype=np.int32)}, "
+        "measurements={'m': np.array([[1]], dtype=np.dtype('int32'))}, "
         "final_simulator_state=cirq.StateVectorSimulationState("
-        "initial_state=np.array([0j, (1+0j)], dtype=np.complex64), "
+        "initial_state=np.array([0j, (1+0j)], dtype=np.dtype('complex64')), "
         "qubits=(cirq.NamedQubit('a'),), "
         "classical_data=cirq.ClassicalDataDictionaryStore()))"
     )
@@ -157,6 +157,28 @@ def test_str_big():
     )
     result = cirq.StateVectorTrialResult(cirq.ParamResolver(), {}, final_simulator_state)
     assert 'output vector: [0.03125+0.j 0.03125+0.j 0.03125+0.j ..' in str(result)
+
+
+def test_str_qudit():
+    qutrit = cirq.LineQid(0, dimension=3)
+    final_simulator_state = cirq.StateVectorSimulationState(
+        prng=np.random.RandomState(0),
+        qubits=[qutrit],
+        initial_state=np.array([0, 0, 1]),
+        dtype=np.complex64,
+    )
+    result = cirq.StateVectorTrialResult(cirq.ParamResolver(), {}, final_simulator_state)
+    assert "|2⟩" in str(result)
+
+    ququart = cirq.LineQid(0, dimension=4)
+    final_simulator_state = cirq.StateVectorSimulationState(
+        prng=np.random.RandomState(0),
+        qubits=[ququart],
+        initial_state=np.array([0, 1, 0, 0]),
+        dtype=np.complex64,
+    )
+    result = cirq.StateVectorTrialResult(cirq.ParamResolver(), {}, final_simulator_state)
+    assert "|1⟩" in str(result)
 
 
 def test_pretty_print():

@@ -15,6 +15,7 @@
 """Quantum gates that phase with respect to product-of-pauli observables."""
 
 from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
+from typing_extensions import Self
 
 import numpy as np
 
@@ -27,6 +28,7 @@ if TYPE_CHECKING:
     import cirq
 
 
+@value.value_equality
 class XXPowGate(gate_features.InterchangeableQubitsGate, eigen_gate.EigenGate):
     r"""The X-parity gate, possibly raised to a power.
 
@@ -132,6 +134,7 @@ class XXPowGate(gate_features.InterchangeableQubitsGate, eigen_gate.EigenGate):
         )
 
 
+@value.value_equality
 class YYPowGate(gate_features.InterchangeableQubitsGate, eigen_gate.EigenGate):
     r"""The Y-parity gate, possibly raised to a power.
 
@@ -236,6 +239,7 @@ class YYPowGate(gate_features.InterchangeableQubitsGate, eigen_gate.EigenGate):
         )
 
 
+@value.value_equality
 class ZZPowGate(gate_features.InterchangeableQubitsGate, eigen_gate.EigenGate):
     r"""The Z-parity gate, possibly raised to a power.
 
@@ -295,6 +299,9 @@ class ZZPowGate(gate_features.InterchangeableQubitsGate, eigen_gate.EigenGate):
 
         return args.target_tensor
 
+    def _phase_by_(self, phase_turns: float, qubit_index: int) -> "ZZPowGate":
+        return self
+
     def __str__(self) -> str:
         if self._exponent == 1:
             return 'ZZ'
@@ -328,7 +335,7 @@ class MSGate(XXPowGate):
         XXPowGate.__init__(self, exponent=rads * 2 / np.pi, global_shift=-0.5)
         self.rads = rads
 
-    def _with_exponent(self: 'MSGate', exponent: value.TParamVal) -> 'MSGate':
+    def _with_exponent(self, exponent: value.TParamVal) -> Self:
         return type(self)(rads=exponent * np.pi / 2)
 
     def _circuit_diagram_info_(

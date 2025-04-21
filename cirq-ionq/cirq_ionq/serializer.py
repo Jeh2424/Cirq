@@ -33,13 +33,17 @@ class SerializedProgram:
     """A container for the serialized portions of a `cirq.Circuit`.
 
     Attributes:
-        body: A dictionary which containts the number of qubits and the serialized circuit
+        body: A dictionary which contains the number of qubits and the serialized circuit
             minus the measurements.
+        settings: A dictionary of settings which can override behavior for this circuit when
+            run on IonQ hardware.
         metadata: A dictionary whose keys store information about the measurements in the circuit.
     """
 
     body: dict
+    settings: dict
     metadata: dict
+    error_mitigation: Optional[dict] = None
 
 
 class Serializer:
@@ -75,7 +79,12 @@ class Serializer:
             MSGate: self._serialize_ms_gate,
         }
 
-    def serialize(self, circuit: cirq.AbstractCircuit) -> SerializedProgram:
+    def serialize(
+        self,
+        circuit: cirq.AbstractCircuit,
+        job_settings: Optional[dict] = None,
+        error_mitigation: Optional[dict] = None,
+    ) -> SerializedProgram:
         """Serialize the given circuit.
 
         Raises:
@@ -97,7 +106,12 @@ class Serializer:
         }
         metadata = self._serialize_measurements(op for op in serialized_ops if op['gate'] == 'meas')
 
-        return SerializedProgram(body=body, metadata=metadata)
+        return SerializedProgram(
+            body=body,
+            metadata=metadata,
+            settings=(job_settings or {}),
+            error_mitigation=error_mitigation,
+        )
 
     def _validate_circuit(self, circuit: cirq.AbstractCircuit):
         if len(circuit) == 0:
@@ -205,7 +219,7 @@ class Serializer:
         return {'gate': 'gpi2', 'target': targets[0], 'phase': gate.phase}
 
     def _serialize_ms_gate(self, gate: MSGate, targets: Sequence[int]) -> Optional[dict]:
-        return {'gate': 'ms', 'targets': targets, 'phases': gate.phases}
+        return {'gate': 'ms', 'targets': targets, 'phases': gate.phases, 'angle': gate.theta}
 
     def _serialize_cnot_pow_gate(
         self, gate: cirq.CNotPowGate, targets: Sequence[int]
@@ -242,7 +256,7 @@ class Serializer:
 
         Each key and targets are serialized into a string of the form `key` + the ASCII unit
         separator (chr(31)) + targets as a comma separated value.  These are then combined
-        into a string with a seperator character of the ASCII record separator (chr(30)).
+        into a string with a separator character of the ASCII record separator (chr(30)).
         Finally this full string is serialized as the values in the metadata dict with keys
         given by `measurementX` for X = 0,1, .. 9 and X large enough to contain the entire
         string.

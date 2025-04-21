@@ -20,6 +20,7 @@ import numpy as np
 
 from cirq import _compat, ops, value, qis
 from cirq.sim import simulator, state_vector, simulator_base
+from cirq.protocols import qid_shape
 
 if TYPE_CHECKING:
     import cirq
@@ -31,7 +32,7 @@ TStateVectorStepResult = TypeVar('TStateVectorStepResult', bound='StateVectorSte
 class SimulatesIntermediateStateVector(
     Generic[TStateVectorStepResult],
     simulator_base.SimulatorBase[
-        TStateVectorStepResult, 'cirq.StateVectorTrialResult', 'cirq.StateVectorSimulationState',
+        TStateVectorStepResult, 'cirq.StateVectorTrialResult', 'cirq.StateVectorSimulationState'
     ],
     simulator.SimulatesAmplitudes,
     metaclass=abc.ABCMeta,
@@ -85,7 +86,8 @@ class SimulatesIntermediateStateVector(
         trial_result_iter = self.simulate_sweep_iter(program, params, qubit_order)
 
         yield from (
-            trial_result.final_state_vector[bitstrings] for trial_result in trial_result_iter
+            trial_result.final_state_vector[bitstrings].tolist()
+            for trial_result in trial_result_iter
         )
 
 
@@ -171,7 +173,7 @@ class StateVectorTrialResult(
             size = np.prod(shape, dtype=np.int64)
             final = final.reshape(size)
             if len([1 for e in final if abs(e) > 0.001]) < 16:
-                state_vector = qis.dirac_notation(final, 3)
+                state_vector = qis.dirac_notation(final, 3, qid_shape(substate.qubits))
             else:
                 state_vector = str(final)
             label = f'qubits: {substate.qubits}' if substate.qubits else 'phase:'

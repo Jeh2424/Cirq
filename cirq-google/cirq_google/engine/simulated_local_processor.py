@@ -13,7 +13,7 @@
 # limitations under the License.
 import datetime
 
-from typing import Dict, List, Optional, Sequence, TYPE_CHECKING, Union
+from typing import Dict, List, Optional, Sequence, Union
 
 import cirq
 
@@ -28,10 +28,6 @@ from cirq_google.engine.simulated_local_program import SimulatedLocalProgram
 from cirq_google.serialization.circuit_serializer import CIRCUIT_SERIALIZER
 from cirq_google.engine.processor_sampler import ProcessorSampler
 from cirq_google.engine import engine_validator
-
-if TYPE_CHECKING:
-    import cirq_google as cg
-    from cirq_google.serialization.serializer import Serializer
 
 VALID_LANGUAGES = [
     'type.googleapis.com/cirq.google.api.v2.Program',
@@ -95,8 +91,8 @@ class SimulatedLocalProcessor(AbstractLocalProcessor):
         *args,
         sampler: cirq.Sampler = cirq.Simulator(),
         device: cirq.Device = cirq.UNCONSTRAINED_DEVICE,
-        validator: validating_sampler.VALIDATOR_TYPE = None,
-        program_validator: engine_validator.PROGRAM_VALIDATOR_TYPE = None,
+        validator: Optional[validating_sampler.VALIDATOR_TYPE] = None,
+        program_validator: Optional[engine_validator.PROGRAM_VALIDATOR_TYPE] = None,
         simulation_type: LocalSimulationType = LocalSimulationType.SYNCHRONOUS,
         calibrations: Optional[Dict[int, calibration.Calibration]] = None,
         device_specification: Optional[v2.device_pb2.DeviceSpecification] = None,
@@ -162,8 +158,10 @@ class SimulatedLocalProcessor(AbstractLocalProcessor):
             if earliest_timestamp_seconds <= cal[0] <= latest_timestamp_seconds
         ]
 
-    def get_sampler(self) -> ProcessorSampler:
-        return ProcessorSampler(processor=self)
+    def get_sampler(self, run_name: str = "", device_config_name="") -> ProcessorSampler:
+        return ProcessorSampler(
+            processor=self, run_name=run_name, device_config_name=device_config_name
+        )
 
     def supported_languages(self) -> List[str]:
         return VALID_LANGUAGES
@@ -206,12 +204,14 @@ class SimulatedLocalProcessor(AbstractLocalProcessor):
         programs: Sequence[cirq.AbstractCircuit],
         program_id: Optional[str] = None,
         job_id: Optional[str] = None,
-        params_list: Sequence[cirq.Sweepable] = None,
+        params_list: Optional[Sequence[cirq.Sweepable]] = None,
         repetitions: int = 1,
         program_description: Optional[str] = None,
         program_labels: Optional[Dict[str, str]] = None,
         job_description: Optional[str] = None,
         job_labels: Optional[Dict[str, str]] = None,
+        run_name: str = "",
+        device_config_name: str = "",
     ) -> SimulatedLocalJob:
         if program_id is None:
             program_id = self._create_id(id_type='program')
@@ -248,6 +248,8 @@ class SimulatedLocalProcessor(AbstractLocalProcessor):
         program_labels: Optional[Dict[str, str]] = None,
         job_description: Optional[str] = None,
         job_labels: Optional[Dict[str, str]] = None,
+        run_name: str = "",
+        device_config_name: str = "",
     ) -> SimulatedLocalJob:
         if program_id is None:
             program_id = self._create_id(id_type='program')

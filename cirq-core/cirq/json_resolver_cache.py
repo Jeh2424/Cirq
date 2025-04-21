@@ -47,6 +47,7 @@ def _class_resolver_dictionary() -> Dict[str, ObjectFactory]:
     import pandas as pd
     import numpy as np
     from cirq.devices.noise_model import _NoNoiseModel
+    from cirq.devices import InsertionNoiseModel
     from cirq.experiments import GridInteractionLayer
     from cirq.experiments.grid_parallel_two_qubit_xeb import GridParallelXEBMetadata
 
@@ -147,6 +148,7 @@ def _class_resolver_dictionary() -> Dict[str, ObjectFactory]:
         'ISwapPowGate': cirq.ISwapPowGate,
         'IdentityGate': cirq.IdentityGate,
         'InitObsSetting': cirq.work.InitObsSetting,
+        'InsertionNoiseModel': InsertionNoiseModel,
         'KeyCondition': cirq.KeyCondition,
         'KrausChannel': cirq.KrausChannel,
         'LinearDict': cirq.LinearDict,
@@ -241,6 +243,7 @@ def _class_resolver_dictionary() -> Dict[str, ObjectFactory]:
         'YYPowGate': cirq.YYPowGate,
         '_ZEigenState': cirq.value.product_state._ZEigenState,
         'Zip': cirq.Zip,
+        'ZipLongest': cirq.ZipLongest,
         'ZPowGate': cirq.ZPowGate,
         'ZZPowGate': cirq.ZZPowGate,
         # Old types, only supported for backwards-compatibility

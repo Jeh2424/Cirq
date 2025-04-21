@@ -56,23 +56,21 @@ def run(
     with open(file_path, 'w') as f:
         f.writelines(script_lines)
 
-    cmd = r"""
+    cmd = f"""
 export GIT_CONFIG_GLOBAL=/dev/null
 export GIT_CONFIG_SYSTEM=/dev/null
 dir=$(git rev-parse --show-toplevel)
-cd {}
+cd {dir_path}
 git init --quiet --initial-branch master
 git config --local user.name 'Me'
 git config --local user.email '<>'
 git commit -m init --allow-empty --quiet --no-gpg-sign
-{}
+{setup}
 mkdir -p dev_tools
 touch dev_tools/pypath
 chmod +x ./test-script.sh
-./test-script.sh {}
-""".format(
-        dir_path, setup, arg
-    )
+./test-script.sh {arg}
+"""
     return shell_tools.run(
         cmd, log_run_to_stderr=False, shell=True, check=False, capture_output=True
     )
@@ -80,7 +78,6 @@ chmod +x ./test-script.sh
 
 @only_on_posix
 def test_pytest_changed_files_file_selection(tmpdir_factory):
-
     result = run(
         script_file='check/pytest-changed-files',
         tmpdir_factory=tmpdir_factory,
@@ -187,7 +184,6 @@ def test_pytest_changed_files_file_selection(tmpdir_factory):
 
 @only_on_posix
 def test_pytest_changed_files_branch_selection(tmpdir_factory):
-
     result = run(
         script_file='check/pytest-changed-files', tmpdir_factory=tmpdir_factory, arg='HEAD'
     )
@@ -349,8 +345,7 @@ def test_pytest_and_incremental_coverage_branch_selection(tmpdir_factory):
     assert result.returncode == 0
     assert result.stdout == (
         'INTERCEPTED check/pytest '
-        '--actually-quiet --cov '
-        '--cov-config=dev_tools/conf/.coveragerc\n'
+        '--cov --cov-config=dev_tools/conf/.coveragerc\n'
         'The annotate command will be removed in a future version.\n'
         'Get in touch if you still use it: ned@nedbatchelder.com\n'
         'No data to report.\n'
@@ -376,8 +371,7 @@ def test_pytest_and_incremental_coverage_branch_selection(tmpdir_factory):
     assert result.returncode == 0
     assert result.stdout == (
         'INTERCEPTED check/pytest '
-        '--actually-quiet --cov '
-        '--cov-config=dev_tools/conf/.coveragerc\n'
+        '--cov --cov-config=dev_tools/conf/.coveragerc\n'
         'The annotate command will be removed in a future version.\n'
         'Get in touch if you still use it: ned@nedbatchelder.com\n'
         'No data to report.\n'
@@ -395,8 +389,7 @@ def test_pytest_and_incremental_coverage_branch_selection(tmpdir_factory):
     assert result.returncode == 0
     assert result.stdout == (
         'INTERCEPTED check/pytest '
-        '--actually-quiet --cov '
-        '--cov-config=dev_tools/conf/.coveragerc\n'
+        '--cov --cov-config=dev_tools/conf/.coveragerc\n'
         'The annotate command will be removed in a future version.\n'
         'Get in touch if you still use it: ned@nedbatchelder.com\n'
         'No data to report.\n'
@@ -414,8 +407,7 @@ def test_pytest_and_incremental_coverage_branch_selection(tmpdir_factory):
     assert result.returncode == 0
     assert result.stdout == (
         'INTERCEPTED check/pytest '
-        '--actually-quiet --cov '
-        '--cov-config=dev_tools/conf/.coveragerc\n'
+        '--cov --cov-config=dev_tools/conf/.coveragerc\n'
         'The annotate command will be removed in a future version.\n'
         'Get in touch if you still use it: ned@nedbatchelder.com\n'
         'No data to report.\n'
@@ -433,8 +425,7 @@ def test_pytest_and_incremental_coverage_branch_selection(tmpdir_factory):
     assert result.returncode == 0
     assert result.stdout == (
         'INTERCEPTED check/pytest '
-        '--actually-quiet --cov '
-        '--cov-config=dev_tools/conf/.coveragerc\n'
+        '--cov --cov-config=dev_tools/conf/.coveragerc\n'
         'The annotate command will be removed in a future version.\n'
         'Get in touch if you still use it: ned@nedbatchelder.com\n'
         'No data to report.\n'
@@ -464,8 +455,7 @@ def test_pytest_and_incremental_coverage_branch_selection(tmpdir_factory):
     assert result.returncode == 0
     assert result.stdout == (
         'INTERCEPTED check/pytest '
-        '--actually-quiet --cov '
-        '--cov-config=dev_tools/conf/.coveragerc\n'
+        '--cov --cov-config=dev_tools/conf/.coveragerc\n'
         'The annotate command will be removed in a future version.\n'
         'Get in touch if you still use it: ned@nedbatchelder.com\n'
         'No data to report.\n'
@@ -483,8 +473,7 @@ def test_pytest_and_incremental_coverage_branch_selection(tmpdir_factory):
     assert result.returncode == 0
     assert result.stdout == (
         'INTERCEPTED check/pytest '
-        '--actually-quiet --cov '
-        '--cov-config=dev_tools/conf/.coveragerc\n'
+        '--cov --cov-config=dev_tools/conf/.coveragerc\n'
         'The annotate command will be removed in a future version.\n'
         'Get in touch if you still use it: ned@nedbatchelder.com\n'
         'No data to report.\n'
@@ -509,8 +498,7 @@ def test_pytest_and_incremental_coverage_branch_selection(tmpdir_factory):
     assert result.returncode == 0
     assert result.stdout.startswith(
         'INTERCEPTED check/pytest '
-        '--actually-quiet --cov '
-        '--cov-config=dev_tools/conf/.coveragerc\n'
+        '--cov --cov-config=dev_tools/conf/.coveragerc\n'
         'The annotate command will be removed in a future version.\n'
         'Get in touch if you still use it: ned@nedbatchelder.com\n'
         'No data to report.\n'
@@ -618,7 +606,6 @@ def test_incremental_format_branch_selection(tmpdir_factory):
 
 @only_on_posix
 def test_pylint_changed_files_file_selection(tmpdir_factory):
-
     result = run(
         script_file='check/pylint-changed-files',
         tmpdir_factory=tmpdir_factory,

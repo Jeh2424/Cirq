@@ -271,7 +271,7 @@ class PhasedFSimCalibrationResult:
                 which are not None will be used to replace current parameters for every pair stored.
 
         Returns:
-            New instance of PhasedFSimCalibrationResult with certain parameters overriden.
+            New instance of PhasedFSimCalibrationResult with certain parameters overridden.
         """
         return PhasedFSimCalibrationResult(
             parameters={
@@ -428,8 +428,7 @@ class PhasedFSimCalibrationError(Exception):
     """Error that indicates the calibration failure."""
 
 
-# We have to relax a mypy constraint, see https://github.com/python/mypy/issues/5374
-@dataclasses.dataclass(frozen=True)  # type: ignore
+@dataclasses.dataclass(frozen=True)
 class PhasedFSimCalibrationRequest(abc.ABC):
     """Description of the request to characterize PhasedFSimGate.
 
@@ -445,8 +444,7 @@ class PhasedFSimCalibrationRequest(abc.ABC):
     gate: cirq.Gate  # Any gate which can be described by cirq.PhasedFSim
     options: PhasedFSimCalibrationOptions
 
-    # Workaround for: https://github.com/python/mypy/issues/1362
-    @property  # type: ignore
+    @property
     @lru_cache_typesafe
     def qubit_to_pair(self) -> MutableMapping[cirq.Qid, Tuple[cirq.Qid, cirq.Qid]]:
         """Returns mapping from qubit to a qubit pair that it belongs to."""
@@ -1050,7 +1048,7 @@ class PhaseCalibratedFSimGate:
             engine_gate = self.engine_gate
         else:
             if cirq.num_qubits(engine_gate) != 2:
-                raise ValueError('Engine gate must be a two-qubit gate')  # coverage: ignore
+                raise ValueError('Engine gate must be a two-qubit gate')  # pragma: no cover
 
         a, b = qubits
 

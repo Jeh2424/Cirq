@@ -384,7 +384,7 @@ def create_noiseless_virtual_engine_from_latest_templates() -> SimulatedLocalEng
 
 
 def create_default_noisy_quantum_virtual_machine(
-    processor_id: str, simulator_class: Type[SimulatesSamples] = None, **kwargs
+    processor_id: str, simulator_class: Optional[Type[SimulatesSamples]] = None, **kwargs
 ) -> SimulatedLocalEngine:
     """Creates a virtual engine with a noisy simulator based on a processor id.
 
@@ -401,12 +401,12 @@ def create_default_noisy_quantum_virtual_machine(
     """
 
     if simulator_class is None:
-        try:  # coverage: ignore
+        try:  # pragma: no cover
             import qsimcirq  # type: ignore
 
-            simulator_class = qsimcirq.QSimSimulator  # coverage: ignore
+            simulator_class = qsimcirq.QSimSimulator  # pragma: no cover
         except ImportError:
-            simulator_class = cirq.Simulator  # coverage: ignore
+            simulator_class = cirq.Simulator  # pragma: no cover
 
     calibration = load_median_device_calibration(processor_id)
     noise_properties = noise_properties_from_calibration(calibration)

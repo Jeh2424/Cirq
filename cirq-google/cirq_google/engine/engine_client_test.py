@@ -14,6 +14,7 @@
 """Tests for EngineClient."""
 import asyncio
 import datetime
+import os
 from unittest import mock
 
 import duet
@@ -24,20 +25,25 @@ from google.protobuf.field_mask_pb2 import FieldMask
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from cirq_google.engine.engine_client import EngineClient, EngineException
-from cirq_google.engine.test_utils import uses_async_mock
+import cirq_google.engine.stream_manager as engine_stream_manager
 from cirq_google.cloud import quantum
 
 
-def setup_mock_(client_constructor):
+def _setup_client_mock(client_constructor):
     grpc_client = mock.AsyncMock()
     client_constructor.return_value = grpc_client
     return grpc_client
 
 
-@uses_async_mock
+def _setup_stream_manager_mock(manager_constructor):
+    stream_manager = mock.MagicMock()
+    manager_constructor.return_value = stream_manager
+    return stream_manager
+
+
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_create_program(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
 
     result = quantum.QuantumProgram(name='projects/proj/programs/prog')
     grpc_client.create_quantum_program.return_value = result
@@ -56,7 +62,6 @@ def test_create_program(client_constructor):
                 description='A program',
                 labels=labels,
             ),
-            overwrite_existing_source_code=False,
         )
     )
 
@@ -67,7 +72,6 @@ def test_create_program(client_constructor):
             quantum_program=quantum.QuantumProgram(
                 name='projects/proj/programs/prog', code=code, description='A program'
             ),
-            overwrite_existing_source_code=False,
         )
     )
 
@@ -78,7 +82,6 @@ def test_create_program(client_constructor):
             quantum_program=quantum.QuantumProgram(
                 name='projects/proj/programs/prog', code=code, labels=labels
             ),
-            overwrite_existing_source_code=False,
         )
     )
 
@@ -87,24 +90,20 @@ def test_create_program(client_constructor):
         quantum.CreateQuantumProgramRequest(
             parent='projects/proj',
             quantum_program=quantum.QuantumProgram(name='projects/proj/programs/prog', code=code),
-            overwrite_existing_source_code=False,
         )
     )
 
     assert client.create_program('proj', program_id=None, code=code) == ('prog', result)
     grpc_client.create_quantum_program.assert_called_with(
         quantum.CreateQuantumProgramRequest(
-            parent='projects/proj',
-            quantum_program=quantum.QuantumProgram(code=code),
-            overwrite_existing_source_code=False,
+            parent='projects/proj', quantum_program=quantum.QuantumProgram(code=code)
         )
     )
 
 
-@uses_async_mock
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_get_program(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
 
     result = quantum.QuantumProgram(name='projects/proj/programs/prog')
     grpc_client.get_quantum_program.return_value = result
@@ -121,10 +120,9 @@ def test_get_program(client_constructor):
     )
 
 
-@uses_async_mock
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_list_program(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
 
     results = [
         quantum.QuantumProgram(name='projects/proj/programs/prog1'),
@@ -139,7 +137,6 @@ def test_list_program(client_constructor):
     )
 
 
-@uses_async_mock
 @pytest.mark.parametrize(
     'expected_filter, created_after, created_before, labels',
     [
@@ -173,7 +170,7 @@ def test_list_program(client_constructor):
 def test_list_program_filters(
     client_constructor, expected_filter, created_before, created_after, labels
 ):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
     client = EngineClient()
     client.list_programs(
         project_id='proj',
@@ -184,17 +181,15 @@ def test_list_program_filters(
     assert grpc_client.list_quantum_programs.call_args[0][0].filter == expected_filter
 
 
-@uses_async_mock
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_list_program_filters_invalid_type(client_constructor):
     with pytest.raises(ValueError, match=""):
         EngineClient().list_programs(project_id='proj', created_before="Unsupported date/time")
 
 
-@uses_async_mock
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_set_program_description(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
 
     result = quantum.QuantumProgram(name='projects/proj/programs/prog')
     grpc_client.update_quantum_program.return_value = result
@@ -221,10 +216,9 @@ def test_set_program_description(client_constructor):
     )
 
 
-@uses_async_mock
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_set_program_labels(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
 
     grpc_client.get_quantum_program.return_value = quantum.QuantumProgram(
         labels={'color': 'red', 'weather': 'sun', 'run': '1'}, label_fingerprint='hash'
@@ -257,10 +251,9 @@ def test_set_program_labels(client_constructor):
     )
 
 
-@uses_async_mock
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_add_program_labels(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
 
     existing = quantum.QuantumProgram(
         labels={'color': 'red', 'weather': 'sun', 'run': '1'}, label_fingerprint='hash'
@@ -300,10 +293,9 @@ def test_add_program_labels(client_constructor):
     )
 
 
-@uses_async_mock
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_remove_program_labels(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
 
     existing = quantum.QuantumProgram(
         labels={'color': 'red', 'weather': 'sun', 'run': '1'}, label_fingerprint='hash'
@@ -341,10 +333,9 @@ def test_remove_program_labels(client_constructor):
     )
 
 
-@uses_async_mock
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_delete_program(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
 
     client = EngineClient()
     assert not client.delete_program('proj', 'prog')
@@ -358,10 +349,10 @@ def test_delete_program(client_constructor):
     )
 
 
-@uses_async_mock
+@mock.patch.dict(os.environ, clear='CIRQ_TESTING')
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_create_job(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
 
     result = quantum.QuantumJob(name='projects/proj/programs/prog/jobs/job0')
     grpc_client.create_quantum_job.return_value = result
@@ -381,13 +372,13 @@ def test_create_job(client_constructor):
                 scheduling_config=quantum.SchedulingConfig(
                     priority=10,
                     processor_selector=quantum.SchedulingConfig.ProcessorSelector(
-                        processor_names=['projects/proj/processors/processor0']
+                        processor='projects/proj/processors/processor0',
+                        device_config_key=quantum.DeviceConfigKey(run_name="", config_alias=""),
                     ),
                 ),
                 description='A job',
                 labels=labels,
             ),
-            overwrite_existing_run_context=False,
         )
     )
 
@@ -404,12 +395,12 @@ def test_create_job(client_constructor):
                 scheduling_config=quantum.SchedulingConfig(
                     priority=10,
                     processor_selector=quantum.SchedulingConfig.ProcessorSelector(
-                        processor_names=['projects/proj/processors/processor0']
+                        processor='projects/proj/processors/processor0',
+                        device_config_key=quantum.DeviceConfigKey(run_name="", config_alias=""),
                     ),
                 ),
                 description='A job',
             ),
-            overwrite_existing_run_context=False,
         )
     )
 
@@ -425,12 +416,12 @@ def test_create_job(client_constructor):
                 scheduling_config=quantum.SchedulingConfig(
                     priority=10,
                     processor_selector=quantum.SchedulingConfig.ProcessorSelector(
-                        processor_names=['projects/proj/processors/processor0']
+                        processor='projects/proj/processors/processor0',
+                        device_config_key=quantum.DeviceConfigKey(run_name="", config_alias=""),
                     ),
                 ),
                 labels=labels,
             ),
-            overwrite_existing_run_context=False,
         )
     )
 
@@ -447,11 +438,11 @@ def test_create_job(client_constructor):
                 scheduling_config=quantum.SchedulingConfig(
                     priority=10,
                     processor_selector=quantum.SchedulingConfig.ProcessorSelector(
-                        processor_names=['projects/proj/processors/processor0']
+                        processor='projects/proj/processors/processor0',
+                        device_config_key=quantum.DeviceConfigKey(run_name="", config_alias=""),
                     ),
                 ),
             ),
-            overwrite_existing_run_context=False,
         )
     )
 
@@ -471,11 +462,11 @@ def test_create_job(client_constructor):
                 scheduling_config=quantum.SchedulingConfig(
                     priority=10,
                     processor_selector=quantum.SchedulingConfig.ProcessorSelector(
-                        processor_names=['projects/proj/processors/processor0']
+                        processor='projects/proj/processors/processor0',
+                        device_config_key=quantum.DeviceConfigKey(run_name="", config_alias=""),
                     ),
                 ),
             ),
-            overwrite_existing_run_context=False,
         )
     )
 
@@ -490,10 +481,388 @@ def test_create_job(client_constructor):
         )
 
 
-@uses_async_mock
+@mock.patch.dict(os.environ, clear='CIRQ_TESTING')
+@mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
+@pytest.mark.parametrize(
+    'processor_ids, processor_id, run_name, device_config_name, error_message',
+    [
+        (
+            ['processor0'],
+            '',
+            'RUN_NAME',
+            'CONFIG_ALIAS',
+            'Cannot specify `run_name` or `device_config_name` if `processor_id` is empty',
+        ),
+        (
+            ['processor0', 'processor1'],
+            '',
+            '',
+            '',
+            'The use of multiple processors is no longer supported.',
+        ),
+        (None, '', '', '', 'Must specify a processor id when creating a job.'),
+        (
+            None,
+            'processor0',
+            'RUN_NAME',
+            '',
+            'Cannot specify only one of `run_name` and `device_config_name`',
+        ),
+        (
+            None,
+            'processor0',
+            '',
+            'CONFIG_ALIAS',
+            'Cannot specify only one of `run_name` and `device_config_name`',
+        ),
+    ],
+)
+def test_create_job_with_invalid_processor_and_device_config_arguments_throws(
+    client_constructor, processor_ids, processor_id, run_name, device_config_name, error_message
+):
+    grpc_client = _setup_client_mock(client_constructor)
+    result = quantum.QuantumJob(name='projects/proj/programs/prog/jobs/job0')
+    grpc_client.create_quantum_job.return_value = result
+    client = EngineClient()
+
+    with pytest.raises(ValueError, match=error_message):
+        client.create_job(
+            project_id='proj',
+            program_id='prog',
+            job_id=None,
+            processor_ids=processor_ids,
+            processor_id=processor_id,
+            run_name=run_name,
+            device_config_name=device_config_name,
+        )
+
+
+@mock.patch.dict(os.environ, clear='CIRQ_TESTING')
+@mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
+@pytest.mark.parametrize(
+    'processor_ids, processor_id', [(None, 'processor0'), (['ignored-processor'], 'processor0')]
+)
+@pytest.mark.parametrize('run_name, device_config_name', [('RUN_NAME', 'CONFIG_NAME'), ('', '')])
+def test_create_job_with_run_name_and_device_config_name(
+    client_constructor, processor_ids, processor_id, run_name, device_config_name
+):
+    grpc_client = _setup_client_mock(client_constructor)
+    result = quantum.QuantumJob(name='projects/proj/programs/prog/jobs/job0')
+    grpc_client.create_quantum_job.return_value = result
+    run_context = any_pb2.Any()
+    client = EngineClient()
+
+    assert client.create_job(
+        project_id='proj',
+        program_id='prog',
+        job_id='job0',
+        processor_ids=processor_ids,
+        processor_id=processor_id,
+        run_name=run_name,
+        device_config_name=device_config_name,
+        run_context=run_context,
+        priority=10,
+    ) == ('job0', result)
+    grpc_client.create_quantum_job.assert_called_with(
+        quantum.CreateQuantumJobRequest(
+            parent='projects/proj/programs/prog',
+            quantum_job=quantum.QuantumJob(
+                name='projects/proj/programs/prog/jobs/job0',
+                run_context=run_context,
+                scheduling_config=quantum.SchedulingConfig(
+                    priority=10,
+                    processor_selector=quantum.SchedulingConfig.ProcessorSelector(
+                        processor='projects/proj/processors/processor0',
+                        device_config_key=quantum.DeviceConfigKey(
+                            run_name=run_name, config_alias=device_config_name
+                        ),
+                    ),
+                ),
+            ),
+        )
+    )
+
+
+@pytest.mark.parametrize(
+    'run_job_kwargs, expected_submit_args',
+    [
+        (
+            {
+                'project_id': 'proj',
+                'program_id': 'prog',
+                'code': any_pb2.Any(),
+                'job_id': 'job0',
+                'processor_id': 'processor0',
+                'run_context': any_pb2.Any(),
+                'program_description': 'A program',
+                'program_labels': {'hello': 'world'},
+                'priority': 10,
+                'job_description': 'A job',
+                'job_labels': {'hello': 'world'},
+            },
+            [
+                'projects/proj',
+                quantum.QuantumProgram(
+                    name='projects/proj/programs/prog',
+                    code=any_pb2.Any(),
+                    description='A program',
+                    labels={'hello': 'world'},
+                ),
+                quantum.QuantumJob(
+                    name='projects/proj/programs/prog/jobs/job0',
+                    run_context=any_pb2.Any(),
+                    scheduling_config=quantum.SchedulingConfig(
+                        priority=10,
+                        processor_selector=quantum.SchedulingConfig.ProcessorSelector(
+                            processor='projects/proj/processors/processor0',
+                            device_config_key=quantum.DeviceConfigKey(),
+                        ),
+                    ),
+                    description='A job',
+                    labels={'hello': 'world'},
+                ),
+            ],
+        ),
+        # Missing program labels
+        (
+            {
+                'project_id': 'proj',
+                'program_id': 'prog',
+                'code': any_pb2.Any(),
+                'job_id': 'job0',
+                'processor_id': 'processor0',
+                'run_context': any_pb2.Any(),
+                'program_description': 'A program',
+                'priority': 10,
+                'job_description': 'A job',
+                'job_labels': {'hello': 'world'},
+            },
+            [
+                'projects/proj',
+                quantum.QuantumProgram(
+                    name='projects/proj/programs/prog', code=any_pb2.Any(), description='A program'
+                ),
+                quantum.QuantumJob(
+                    name='projects/proj/programs/prog/jobs/job0',
+                    run_context=any_pb2.Any(),
+                    scheduling_config=quantum.SchedulingConfig(
+                        priority=10,
+                        processor_selector=quantum.SchedulingConfig.ProcessorSelector(
+                            processor='projects/proj/processors/processor0',
+                            device_config_key=quantum.DeviceConfigKey(),
+                        ),
+                    ),
+                    description='A job',
+                    labels={'hello': 'world'},
+                ),
+            ],
+        ),
+        # Missing program description and labels
+        (
+            {
+                'project_id': 'proj',
+                'program_id': 'prog',
+                'code': any_pb2.Any(),
+                'job_id': 'job0',
+                'processor_id': 'processor0',
+                'run_context': any_pb2.Any(),
+                'priority': 10,
+                'job_description': 'A job',
+                'job_labels': {'hello': 'world'},
+            },
+            [
+                'projects/proj',
+                quantum.QuantumProgram(name='projects/proj/programs/prog', code=any_pb2.Any()),
+                quantum.QuantumJob(
+                    name='projects/proj/programs/prog/jobs/job0',
+                    run_context=any_pb2.Any(),
+                    scheduling_config=quantum.SchedulingConfig(
+                        priority=10,
+                        processor_selector=quantum.SchedulingConfig.ProcessorSelector(
+                            processor='projects/proj/processors/processor0',
+                            device_config_key=quantum.DeviceConfigKey(),
+                        ),
+                    ),
+                    description='A job',
+                    labels={'hello': 'world'},
+                ),
+            ],
+        ),
+        # Missing job labels
+        (
+            {
+                'project_id': 'proj',
+                'program_id': 'prog',
+                'code': any_pb2.Any(),
+                'job_id': 'job0',
+                'processor_id': 'processor0',
+                'run_context': any_pb2.Any(),
+                'program_description': 'A program',
+                'program_labels': {'hello': 'world'},
+                'priority': 10,
+                'job_description': 'A job',
+            },
+            [
+                'projects/proj',
+                quantum.QuantumProgram(
+                    name='projects/proj/programs/prog',
+                    code=any_pb2.Any(),
+                    description='A program',
+                    labels={'hello': 'world'},
+                ),
+                quantum.QuantumJob(
+                    name='projects/proj/programs/prog/jobs/job0',
+                    run_context=any_pb2.Any(),
+                    scheduling_config=quantum.SchedulingConfig(
+                        priority=10,
+                        processor_selector=quantum.SchedulingConfig.ProcessorSelector(
+                            processor='projects/proj/processors/processor0',
+                            device_config_key=quantum.DeviceConfigKey(),
+                        ),
+                    ),
+                    description='A job',
+                ),
+            ],
+        ),
+        # Missing job description and labels
+        (
+            {
+                'project_id': 'proj',
+                'program_id': 'prog',
+                'code': any_pb2.Any(),
+                'job_id': 'job0',
+                'processor_id': 'processor0',
+                'run_context': any_pb2.Any(),
+                'program_description': 'A program',
+                'program_labels': {'hello': 'world'},
+                'priority': 10,
+            },
+            [
+                'projects/proj',
+                quantum.QuantumProgram(
+                    name='projects/proj/programs/prog',
+                    code=any_pb2.Any(),
+                    description='A program',
+                    labels={'hello': 'world'},
+                ),
+                quantum.QuantumJob(
+                    name='projects/proj/programs/prog/jobs/job0',
+                    run_context=any_pb2.Any(),
+                    scheduling_config=quantum.SchedulingConfig(
+                        priority=10,
+                        processor_selector=quantum.SchedulingConfig.ProcessorSelector(
+                            processor='projects/proj/processors/processor0',
+                            device_config_key=quantum.DeviceConfigKey(),
+                        ),
+                    ),
+                ),
+            ],
+        ),
+        # Missing job priority, description, and labels
+        (
+            {
+                'project_id': 'proj',
+                'program_id': 'prog',
+                'code': any_pb2.Any(),
+                'job_id': 'job0',
+                'processor_id': 'processor0',
+                'run_context': any_pb2.Any(),
+                'program_description': 'A program',
+                'program_labels': {'hello': 'world'},
+            },
+            [
+                'projects/proj',
+                quantum.QuantumProgram(
+                    name='projects/proj/programs/prog',
+                    code=any_pb2.Any(),
+                    description='A program',
+                    labels={'hello': 'world'},
+                ),
+                quantum.QuantumJob(
+                    name='projects/proj/programs/prog/jobs/job0',
+                    run_context=any_pb2.Any(),
+                    scheduling_config=quantum.SchedulingConfig(
+                        processor_selector=quantum.SchedulingConfig.ProcessorSelector(
+                            processor='projects/proj/processors/processor0',
+                            device_config_key=quantum.DeviceConfigKey(),
+                        )
+                    ),
+                ),
+            ],
+        ),
+    ],
+)
+@mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
+@mock.patch.object(engine_stream_manager, 'StreamManager', autospec=True)
+def test_run_job_over_stream(
+    manager_constructor, client_constructor, run_job_kwargs, expected_submit_args
+):
+    _setup_client_mock(client_constructor)
+    stream_manager = _setup_stream_manager_mock(manager_constructor)
+
+    result = quantum.QuantumResult(parent='projects/proj/programs/prog/jobs/job0')
+    expected_future = duet.AwaitableFuture()
+    expected_future.try_set_result(result)
+    stream_manager.submit.return_value = expected_future
+    client = EngineClient()
+
+    actual_future = client.run_job_over_stream(**run_job_kwargs)
+
+    assert actual_future == expected_future
+    stream_manager.submit.assert_called_with(*expected_submit_args)
+
+
+def test_run_job_over_stream_with_priority_out_of_bound_raises():
+    client = EngineClient()
+
+    with pytest.raises(ValueError):
+        client.run_job_over_stream(
+            project_id='proj',
+            program_id='prog',
+            code=any_pb2.Any(),
+            job_id='job0',
+            processor_id='processor0',
+            run_context=any_pb2.Any(),
+            priority=9001,
+        )
+
+
+def test_run_job_over_stream_processor_unset_raises():
+    client = EngineClient()
+
+    with pytest.raises(ValueError, match='Must specify a processor id'):
+        client.run_job_over_stream(
+            project_id='proj',
+            program_id='prog',
+            code=any_pb2.Any(),
+            job_id='job0',
+            processor_id='',
+            run_context=any_pb2.Any(),
+        )
+
+
+@pytest.mark.parametrize('run_name, device_config_name', [('run1', ''), ('', 'device_config1')])
+def test_run_job_over_stream_invalid_device_config_raises(run_name, device_config_name):
+    client = EngineClient()
+
+    with pytest.raises(
+        ValueError, match='Cannot specify only one of `run_name` and `device_config_name`'
+    ):
+        client.run_job_over_stream(
+            project_id='proj',
+            program_id='prog',
+            code=any_pb2.Any(),
+            job_id='job0',
+            processor_id='mysim',
+            run_context=any_pb2.Any(),
+            run_name=run_name,
+            device_config_name=device_config_name,
+        )
+
+
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_get_job(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
 
     result = quantum.QuantumJob(name='projects/proj/programs/prog/jobs/job0')
     grpc_client.get_quantum_job.return_value = result
@@ -514,10 +883,9 @@ def test_get_job(client_constructor):
     )
 
 
-@uses_async_mock
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_set_job_description(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
 
     result = quantum.QuantumJob(name='projects/proj/programs/prog/jobs/job0')
     grpc_client.update_quantum_job.return_value = result
@@ -544,10 +912,9 @@ def test_set_job_description(client_constructor):
     )
 
 
-@uses_async_mock
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_set_job_labels(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
 
     grpc_client.get_quantum_job.return_value = quantum.QuantumJob(
         labels={'color': 'red', 'weather': 'sun', 'run': '1'}, label_fingerprint='hash'
@@ -582,10 +949,9 @@ def test_set_job_labels(client_constructor):
     )
 
 
-@uses_async_mock
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_add_job_labels(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
 
     existing = quantum.QuantumJob(
         labels={'color': 'red', 'weather': 'sun', 'run': '1'}, label_fingerprint='hash'
@@ -627,10 +993,9 @@ def test_add_job_labels(client_constructor):
     )
 
 
-@uses_async_mock
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_remove_job_labels(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
 
     existing = quantum.QuantumJob(
         labels={'color': 'red', 'weather': 'sun', 'run': '1'}, label_fingerprint='hash'
@@ -668,10 +1033,9 @@ def test_remove_job_labels(client_constructor):
     )
 
 
-@uses_async_mock
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_delete_job(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
 
     client = EngineClient()
     assert not client.delete_job('proj', 'prog', 'job0')
@@ -680,10 +1044,9 @@ def test_delete_job(client_constructor):
     )
 
 
-@uses_async_mock
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_cancel_job(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
 
     client = EngineClient()
     assert not client.cancel_job('proj', 'prog', 'job0')
@@ -692,10 +1055,9 @@ def test_cancel_job(client_constructor):
     )
 
 
-@uses_async_mock
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_job_results(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
 
     result = quantum.QuantumResult(parent='projects/proj/programs/prog/jobs/job0')
     grpc_client.get_quantum_result.return_value = result
@@ -707,10 +1069,9 @@ def test_job_results(client_constructor):
     )
 
 
-@uses_async_mock
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_list_jobs(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
 
     results = [
         quantum.QuantumJob(name='projects/proj/programs/prog1/jobs/job1'),
@@ -730,7 +1091,6 @@ def test_list_jobs(client_constructor):
     )
 
 
-@uses_async_mock
 @pytest.mark.parametrize(
     'expected_filter, '
     'created_after, '
@@ -824,7 +1184,7 @@ def test_list_jobs_filters(
     executed_processor_ids,
     scheduled_processor_ids,
 ):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
     client = EngineClient()
     client.list_jobs(
         project_id='proj',
@@ -851,10 +1211,9 @@ class Pager:
             yield item
 
 
-@uses_async_mock
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_list_processors(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
 
     results = [
         quantum.QuantumProcessor(name='projects/proj/processor/processor0'),
@@ -869,10 +1228,9 @@ def test_list_processors(client_constructor):
     )
 
 
-@uses_async_mock
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_get_processor(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
 
     result = quantum.QuantumProcessor(name='projects/proj/processors/processor0')
     grpc_client.get_quantum_processor.return_value = result
@@ -884,10 +1242,9 @@ def test_get_processor(client_constructor):
     )
 
 
-@uses_async_mock
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_list_calibrations(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
 
     results = [
         quantum.QuantumCalibration(name='projects/proj/processor/processor0/calibrations/123456'),
@@ -902,10 +1259,9 @@ def test_list_calibrations(client_constructor):
     )
 
 
-@uses_async_mock
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_get_calibration(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
 
     result = quantum.QuantumCalibration(
         name='projects/proj/processors/processor0/calibrations/123456'
@@ -921,10 +1277,9 @@ def test_get_calibration(client_constructor):
     )
 
 
-@uses_async_mock
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_get_current_calibration(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
 
     result = quantum.QuantumCalibration(
         name='projects/proj/processors/processor0/calibrations/123456'
@@ -940,10 +1295,9 @@ def test_get_current_calibration(client_constructor):
     )
 
 
-@uses_async_mock
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_get_current_calibration_does_not_exist(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
 
     grpc_client.get_quantum_calibration.side_effect = exceptions.NotFound('not found')
 
@@ -956,10 +1310,9 @@ def test_get_current_calibration_does_not_exist(client_constructor):
     )
 
 
-@uses_async_mock
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_get_current_calibration_error(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
 
     grpc_client.get_quantum_calibration.side_effect = exceptions.BadRequest('boom')
 
@@ -968,10 +1321,9 @@ def test_get_current_calibration_error(client_constructor):
         client.get_current_calibration('proj', 'processor0')
 
 
-@uses_async_mock
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_api_doesnt_retry_not_found_errors(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
     grpc_client.get_quantum_program.side_effect = exceptions.NotFound('not found')
 
     client = EngineClient()
@@ -980,10 +1332,9 @@ def test_api_doesnt_retry_not_found_errors(client_constructor):
     assert grpc_client.get_quantum_program.call_count == 1
 
 
-@uses_async_mock
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_api_retry_5xx_errors(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
     grpc_client.get_quantum_program.side_effect = exceptions.ServiceUnavailable('internal error')
 
     client = EngineClient(max_retry_delay_seconds=0.3)
@@ -992,11 +1343,10 @@ def test_api_retry_5xx_errors(client_constructor):
     assert grpc_client.get_quantum_program.call_count == 3
 
 
-@uses_async_mock
 @mock.patch('duet.sleep', return_value=duet.completed_future(None))
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_api_retry_times(client_constructor, mock_sleep):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
     grpc_client.get_quantum_program.side_effect = exceptions.ServiceUnavailable('internal error')
 
     client = EngineClient(max_retry_delay_seconds=0.3)
@@ -1008,10 +1358,9 @@ def test_api_retry_times(client_constructor, mock_sleep):
     assert all(x == y for (x, _), y in zip(mock_sleep.call_args_list, [(0.1,), (0.2,)]))
 
 
-@uses_async_mock
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_create_reservation(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
     start = datetime.datetime.fromtimestamp(1000000000)
     end = datetime.datetime.fromtimestamp(1000003600)
     users = ['jeff@google.com']
@@ -1035,10 +1384,9 @@ def test_create_reservation(client_constructor):
     )
 
 
-@uses_async_mock
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_cancel_reservation(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
     name = 'projects/proj/processors/processor0/reservations/papar-party-44'
     result = quantum.QuantumReservation(
         name=name,
@@ -1055,10 +1403,9 @@ def test_cancel_reservation(client_constructor):
     )
 
 
-@uses_async_mock
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_delete_reservation(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
     name = 'projects/proj/processors/processor0/reservations/papar-party-44'
     result = quantum.QuantumReservation(
         name=name,
@@ -1075,10 +1422,9 @@ def test_delete_reservation(client_constructor):
     )
 
 
-@uses_async_mock
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_get_reservation(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
     name = 'projects/proj/processors/processor0/reservations/papar-party-44'
     result = quantum.QuantumReservation(
         name=name,
@@ -1095,10 +1441,9 @@ def test_get_reservation(client_constructor):
     )
 
 
-@uses_async_mock
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_get_reservation_not_found(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
     name = 'projects/proj/processors/processor0/reservations/papar-party-44'
     grpc_client.get_quantum_reservation.side_effect = exceptions.NotFound('not found')
 
@@ -1109,10 +1454,9 @@ def test_get_reservation_not_found(client_constructor):
     )
 
 
-@uses_async_mock
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_get_reservation_exception(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
     grpc_client.get_quantum_reservation.side_effect = exceptions.BadRequest('boom')
 
     client = EngineClient()
@@ -1120,10 +1464,9 @@ def test_get_reservation_exception(client_constructor):
         client.get_reservation('proj', 'processor0', 'goog')
 
 
-@uses_async_mock
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_list_reservation(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
     name = 'projects/proj/processors/processor0/reservations/papar-party-44'
     results = [
         quantum.QuantumReservation(
@@ -1145,10 +1488,9 @@ def test_list_reservation(client_constructor):
     assert client.list_reservations('proj', 'processor0') == results
 
 
-@uses_async_mock
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_update_reservation(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
     name = 'projects/proj/processors/processor0/reservations/papar-party-44'
     result = quantum.QuantumReservation(
         name=name,
@@ -1179,10 +1521,9 @@ def test_update_reservation(client_constructor):
     )
 
 
-@uses_async_mock
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_update_reservation_remove_all_users(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
     name = 'projects/proj/processors/processor0/reservations/papar-party-44'
     result = quantum.QuantumReservation(name=name, whitelisted_users=[])
     grpc_client.update_quantum_reservation.return_value = result
@@ -1201,10 +1542,9 @@ def test_update_reservation_remove_all_users(client_constructor):
     )
 
 
-@uses_async_mock
 @mock.patch.object(quantum, 'QuantumEngineServiceAsyncClient', autospec=True)
 def test_list_time_slots(client_constructor):
-    grpc_client = setup_mock_(client_constructor)
+    grpc_client = _setup_client_mock(client_constructor)
     results = [
         quantum.QuantumTimeSlot(
             processor_name='potofgold',

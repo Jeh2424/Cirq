@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 from collections import defaultdict
 from typing import (
     AbstractSet,
@@ -356,7 +357,7 @@ def _pauli_string_from_unit(unit: UnitPauliStringT, coefficient: Union[int, floa
     return PauliString(qubit_pauli_map=dict(unit), coefficient=coefficient)
 
 
-@value.value_equality(approximate=True)
+@value.value_equality(approximate=True, unhashable=True)
 class PauliSum:
     """Represents operator defined by linear combination of PauliStrings.
 
@@ -440,7 +441,7 @@ class PauliSum:
     def wrap(val: PauliSumLike) -> 'PauliSum':
         """Convert a `cirq.PauliSumLike` object to a PauliSum
 
-        Attemps to convert an existing int, float, complex, `cirq.PauliString`,
+        Attempts to convert an existing int, float, complex, `cirq.PauliString`,
         `cirq.PauliSum` or `cirq.SingleQubitPauliStringGateOperation` into
         a `cirq.PauliSum` object. For example:
 
@@ -651,7 +652,7 @@ class PauliSum:
         if any(abs(p.coefficient.imag) > 0.0001 for p in self):
             raise NotImplementedError(
                 "Cannot compute expectation value of a non-Hermitian "
-                "PauliString <{}>. Coefficient must be real.".format(self)
+                f"PauliString <{self}>. Coefficient must be real."
             )
 
         # TODO: Avoid enforce specific complex type. This is necessary to
@@ -713,7 +714,7 @@ class PauliSum:
         if any(abs(p.coefficient.imag) > 0.0001 for p in self):
             raise NotImplementedError(
                 "Cannot compute expectation value of a non-Hermitian "
-                "PauliString <{}>. Coefficient must be real.".format(self)
+                f"PauliString <{self}>. Coefficient must be real."
             )
 
         # FIXME: Avoid enforce specific complex type. This is necessary to
@@ -839,10 +840,10 @@ class PauliSum:
         if exponent == 0:
             return PauliSum(value.LinearDict({frozenset(): 1 + 0j}))
         if exponent > 0:
-            base = self.copy()
+            result = self.copy()
             for _ in range(exponent - 1):
-                base *= base
-            return base
+                result *= self
+            return result
         return NotImplemented
 
     def __truediv__(self, a: value.Scalar):

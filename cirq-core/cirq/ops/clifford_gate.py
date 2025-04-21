@@ -75,12 +75,6 @@ def _to_clifford_tableau(
     return clifford_tableau
 
 
-def _pretend_initialized() -> 'SingleQubitCliffordGate':
-    # HACK: This is a workaround to fool mypy and pylint into correctly handling
-    # class fields that can't be initialized until after the class is defined.
-    pass
-
-
 def _validate_map_input(
     required_transform_count: int,
     pauli_map_to: Optional[Dict[Pauli, Tuple[Pauli, bool]]],
@@ -97,6 +91,7 @@ def _validate_map_input(
             ' of x_to, y_to, and z_to but both were given'
         )
     if len(pauli_map_to) != required_transform_count:
+        # pylint: disable=consider-using-f-string
         raise ValueError(
             'Method takes {} transform{} but {} {} given'.format(
                 required_transform_count,
@@ -166,7 +161,7 @@ class CommonCliffordGateMetaClass(value.ABCMetaImplementAnyOneOf):
                     _to_clifford_tableau(x_to=x_to, z_to=z_to)
                 )
 
-            # Order in is relied on in properties that retrieve a specific Clifford below.
+            # Order matters: it's relied upon in properties that retrieve a specific Clifford below.
             cls._all_single_qubit_cliffords = (
                 # 0: Identity
                 from_xz(x_to=pX, z_to=pZ),  # I
@@ -440,7 +435,6 @@ class CliffordGate(raw_types.Gate, CommonCliffordGates):
     def _act_on_(
         self, sim_state: 'cirq.SimulationStateBase', qubits: Sequence['cirq.Qid']
     ) -> Union[NotImplementedType, bool]:
-
         # Note the computation complexity difference between _decompose_ and _act_on_.
         # Suppose this Gate has `m` qubits, args has `n` qubits, and the decomposition of
         # this operation into `k` operations:
@@ -454,7 +448,7 @@ class CliffordGate(raw_types.Gate, CommonCliffordGates):
             sim_state._state = sim_state.tableau.then(padded_tableau)
             return True
 
-        if isinstance(sim_state, sim.clifford.StabilizerChFormSimulationState):  # coverage: ignore
+        if isinstance(sim_state, sim.clifford.StabilizerChFormSimulationState):  # pragma: no cover
             # Do we know how to apply CliffordTableau on StabilizerChFormSimulationState?
             # It should be unlike because CliffordTableau ignores the global phase but CHForm
             # is aimed to fix that.
@@ -689,25 +683,26 @@ class SingleQubitCliffordGate(CliffordGate):
         flip_index = int(z_to_flip) * 2 + x_to_flip
         a, x, z = 0.0, 0.0, 0.0
 
-        if np.array_equal(self.clifford_tableau.matrix(), [[1, 0], [0, 1]]):
+        matrix = self.clifford_tableau.matrix()
+        if np.array_equal(matrix, [[1, 0], [0, 1]]):
             # I, Z, X, Y cases
             to_phased_xz = [(0.0, 0.0, 0.0), (0.0, 0.0, 1.0), (0.0, 1.0, 0.0), (0.5, 1.0, 0.0)]
             a, x, z = to_phased_xz[flip_index]
-        elif np.array_equal(self.clifford_tableau.matrix(), [[1, 0], [1, 1]]):
+        elif np.array_equal(matrix, [[1, 0], [1, 1]]):
             # +/- X_sqrt, 2 Hadamard-like gates acting on the YZ plane
             a = 0.0
             x = 0.5 if x_to_flip ^ z_to_flip else -0.5
             z = 1.0 if x_to_flip else 0.0
-        elif np.array_equal(self.clifford_tableau.matrix(), [[0, 1], [1, 0]]):
+        elif np.array_equal(matrix, [[0, 1], [1, 0]]):
             # +/- Y_sqrt, 2 Hadamard-like gates acting on the XZ plane
             a = 0.5
             x = 0.5 if x_to_flip else -0.5
             z = 0.0 if x_to_flip ^ z_to_flip else 1.0
-        elif np.array_equal(self.clifford_tableau.matrix(), [[1, 1], [0, 1]]):
+        elif np.array_equal(matrix, [[1, 1], [0, 1]]):
             # +/- Z_sqrt, 2 Hadamard-like gates acting on the XY plane
             to_phased_xz = [(0.0, 0.0, 0.5), (0.0, 0.0, -0.5), (0.25, 1.0, 0.0), (-0.25, 1.0, 0.0)]
             a, x, z = to_phased_xz[flip_index]
-        elif np.array_equal(self.clifford_tableau.matrix(), [[0, 1], [1, 1]]):
+        elif np.array_equal(matrix, [[0, 1], [1, 1]]):
             # axis swapping rotation -- (312) permutation
             a = 0.5
             x = 0.5 if x_to_flip else -0.5
@@ -715,7 +710,7 @@ class SingleQubitCliffordGate(CliffordGate):
         else:
             # axis swapping rotation -- (231) permutation.
             # This should be the only cases left.
-            assert np.array_equal(self.clifford_tableau.matrix(), [[1, 1], [1, 0]])
+            assert np.array_equal(matrix, [[1, 1], [1, 0]])
             a = 0.0
             x = -0.5 if x_to_flip ^ z_to_flip else 0.5
             z = -0.5 if x_to_flip else 0.5
@@ -852,8 +847,7 @@ class SingleQubitCliffordGate(CliffordGate):
                 ]
 
             return [(pauli_gates.Z, 1 if y_rot[1] else -1), (pauli_gates.X, 1 if z_rot[1] else -1)]
-        # coverage: ignore
-        assert (
+        assert (  # pragma: no cover
             False
         ), 'Impossible condition where this gate only rotates one Pauli to a different Pauli.'
 

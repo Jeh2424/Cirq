@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """Quantum gates that are commonly used in the literature.
 
 This module creates Gate instances for the following gates:
@@ -72,10 +73,10 @@ class XPowGate(eigen_gate.EigenGate):
 
     The unitary matrix of `cirq.XPowGate(exponent=t, global_shift=s)` is:
     $$
-    e^{i \pi s t}
+    e^{i \pi t (s + 1/2)}
     \begin{bmatrix}
-      e^{i \pi t /2} \cos(\pi t) & -i e^{i \pi t /2} \sin(\pi t) \\
-      -i e^{i \pi t /2} \sin(\pi t) & e^{i \pi t /2} \cos(\pi t)
+      \cos(\pi t /2) & -i \sin(\pi t /2) \\
+      -i \sin(\pi t /2) & \cos(\pi t /2)
     \end{bmatrix}
     $$
 
@@ -119,6 +120,10 @@ class XPowGate(eigen_gate.EigenGate):
         """
         super().__init__(exponent=exponent, global_shift=global_shift)
         self._dimension = dimension
+
+    @property
+    def dimension(self) -> value.TParamVal:
+        return self._dimension
 
     def _num_qubits_(self) -> int:
         return 1
@@ -183,7 +188,7 @@ class XPowGate(eigen_gate.EigenGate):
 
     def controlled(
         self,
-        num_controls: int = None,
+        num_controls: Optional[int] = None,
         control_values: Optional[
             Union[cv.AbstractControlValues, Sequence[Union[int, Collection[int]]]]
         ] = None,
@@ -316,6 +321,18 @@ class XPowGate(eigen_gate.EigenGate):
         all_args = ', '.join(args)
         return f'cirq.XPowGate({all_args})'
 
+    def _json_dict_(self) -> Dict[str, Any]:
+        d = protocols.obj_to_dict_helper(self, ['exponent', 'global_shift'])
+        if self.dimension != 2:
+            d['dimension'] = self.dimension
+        return d
+
+    def _value_equality_values_(self):
+        return (*super()._value_equality_values_(), self._dimension)
+
+    def _value_equality_approximate_values_(self):
+        return (*super()._value_equality_approximate_values_(), self._dimension)
+
 
 class Rx(XPowGate):
     r"""A gate with matrix $e^{-i X t/2}$ that rotates around the X axis of the Bloch sphere by $t$.
@@ -341,7 +358,7 @@ class Rx(XPowGate):
         self._rads = rads
         super().__init__(exponent=rads / _pi(rads), global_shift=-0.5)
 
-    def _with_exponent(self: 'Rx', exponent: value.TParamVal) -> 'Rx':
+    def _with_exponent(self, exponent: value.TParamVal) -> 'Rx':
         return Rx(rads=exponent * _pi(exponent))
 
     def _circuit_diagram_info_(
@@ -496,8 +513,10 @@ class YPowGate(eigen_gate.EigenGate):
             if self._exponent == 1:
                 return 'cirq.Y'
             return f'(cirq.Y**{proper_repr(self._exponent)})'
-        return 'cirq.YPowGate(exponent={}, global_shift={!r})'.format(
-            proper_repr(self._exponent), self._global_shift
+        return (
+            'cirq.YPowGate('
+            f'exponent={proper_repr(self._exponent)}, '
+            f'global_shift={self._global_shift!r})'
         )
 
 
@@ -525,7 +544,7 @@ class Ry(YPowGate):
         self._rads = rads
         super().__init__(exponent=rads / _pi(rads), global_shift=-0.5)
 
-    def _with_exponent(self: 'Ry', exponent: value.TParamVal) -> 'Ry':
+    def _with_exponent(self, exponent: value.TParamVal) -> 'Ry':
         return Ry(rads=exponent * _pi(exponent))
 
     def _circuit_diagram_info_(
@@ -608,6 +627,10 @@ class ZPowGate(eigen_gate.EigenGate):
         super().__init__(exponent=exponent, global_shift=global_shift)
         self._dimension = dimension
 
+    @property
+    def dimension(self) -> value.TParamVal:
+        return self._dimension
+
     def _num_qubits_(self) -> int:
         return 1
 
@@ -647,7 +670,7 @@ class ZPowGate(eigen_gate.EigenGate):
 
     def controlled(
         self,
-        num_controls: int = None,
+        num_controls: Optional[int] = None,
         control_values: Optional[
             Union[cv.AbstractControlValues, Sequence[Union[int, Collection[int]]]]
         ] = None,
@@ -834,6 +857,18 @@ class ZPowGate(eigen_gate.EigenGate):
             return NotImplemented
         return True
 
+    def _json_dict_(self) -> Dict[str, Any]:
+        d = protocols.obj_to_dict_helper(self, ['exponent', 'global_shift'])
+        if self.dimension != 2:
+            d['dimension'] = self.dimension
+        return d
+
+    def _value_equality_values_(self):
+        return (*super()._value_equality_values_(), self._dimension)
+
+    def _value_equality_approximate_values_(self):
+        return (*super()._value_equality_approximate_values_(), self._dimension)
+
 
 class Rz(ZPowGate):
     r"""A gate with matrix $e^{-i Z t/2}$ that rotates around the Z axis of the Bloch sphere by $t$.
@@ -859,7 +894,7 @@ class Rz(ZPowGate):
         self._rads = rads
         super().__init__(exponent=rads / _pi(rads), global_shift=-0.5)
 
-    def _with_exponent(self: 'Rz', exponent: value.TParamVal) -> 'Rz':
+    def _with_exponent(self, exponent: value.TParamVal) -> 'Rz':
         return Rz(rads=exponent * _pi(exponent))
 
     def _circuit_diagram_info_(
@@ -1090,7 +1125,7 @@ class CZPowGate(gate_features.InterchangeableQubitsGate, eigen_gate.EigenGate):
 
     def controlled(
         self,
-        num_controls: int = None,
+        num_controls: Optional[int] = None,
         control_values: Optional[
             Union[cv.AbstractControlValues, Sequence[Union[int, Collection[int]]]]
         ] = None,
@@ -1189,8 +1224,10 @@ class CZPowGate(gate_features.InterchangeableQubitsGate, eigen_gate.EigenGate):
             if self._exponent == 1:
                 return 'cirq.CZ'
             return f'(cirq.CZ**{proper_repr(self._exponent)})'
-        return 'cirq.CZPowGate(exponent={}, global_shift={!r})'.format(
-            proper_repr(self._exponent), self._global_shift
+        return (
+            'cirq.CZPowGate('
+            f'exponent={proper_repr(self._exponent)}, '
+            f'global_shift={self._global_shift!r})'
         )
 
 
@@ -1296,7 +1333,7 @@ class CXPowGate(eigen_gate.EigenGate):
 
     def controlled(
         self,
-        num_controls: int = None,
+        num_controls: Optional[int] = None,
         control_values: Optional[
             Union[cv.AbstractControlValues, Sequence[Union[int, Collection[int]]]]
         ] = None,

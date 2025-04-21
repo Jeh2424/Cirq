@@ -41,6 +41,7 @@ from cirq.ops.common_channels import (
     phase_flip,
     PhaseDampingChannel,
     PhaseFlipChannel,
+    R,
     reset,
     reset_each,
     ResetChannel,
@@ -119,6 +120,10 @@ from cirq.ops.projector import ProjectorString
 
 from cirq.ops.controlled_operation import ControlledOperation
 
+from cirq.ops.qubit_manager import BorrowableQubit, CleanQubit, QubitManager, SimpleQubitManager
+
+from cirq.ops.greedy_qubit_manager import GreedyQubitManager
+
 from cirq.ops.qubit_order import QubitOrder
 
 from cirq.ops.qubit_order_or_list import QubitOrderOrList
@@ -126,6 +131,7 @@ from cirq.ops.qubit_order_or_list import QubitOrderOrList
 from cirq.ops.matrix_gates import MatrixGate
 
 from cirq.ops.measure_util import (
+    M,
     measure,
     measure_each,
     measure_paulistring_terms,

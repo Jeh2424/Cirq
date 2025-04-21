@@ -8,28 +8,28 @@ layer {
     scheduling_strategy: MOMENT_BY_MOMENT
     moments {
       operations {
+        fsimgate {
+          theta {
+            float_value: 0.75
+          }
+          phi {
+            float_value: 0
+          }
+        }
         qubit_constant_index: 0
         qubit_constant_index: 1
-        fsimgate {
-          theta {
-            float_value: 0.7853981852531433
-          }
-          phi {
-            float_value: 0.0
-          }
-        }
       }
       operations {
-        qubit_constant_index: 2
-        qubit_constant_index: 3
         fsimgate {
           theta {
-            float_value: 0.7853981852531433
+            float_value: 0.75
           }
           phi {
-            float_value: 0.0
+            float_value: 0
           }
         }
+        qubit_constant_index: 2
+        qubit_constant_index: 3
       }
     }
   }
@@ -55,42 +55,34 @@ layer {
   }
 }
 args {
-  key: "characterize_chi"
+  key: "xatol"
   value {
     arg_value {
-      float_value: 0.0
+      float_value: 0.0078125
     }
   }
 }
 args {
-  key: "characterize_gamma"
+  key: "n_library_circuits"
   value {
     arg_value {
-      float_value: 0.0
+      float_value: 22
     }
   }
 }
 args {
-  key: "characterize_phi"
+  key: "n_combinations"
   value {
     arg_value {
-      float_value: 1.0
+      float_value: 10
     }
   }
 }
 args {
-  key: "characterize_theta"
+  key: "fatol"
   value {
     arg_value {
-      float_value: 1.0
-    }
-  }
-}
-args {
-  key: "characterize_zeta"
-  value {
-    arg_value {
-      float_value: 1.0
+      float_value: 0.0078125
     }
   }
 }
@@ -103,34 +95,42 @@ args {
   }
 }
 args {
-  key: "fatol"
+  key: "characterize_zeta"
   value {
     arg_value {
-      float_value: 0.005
+      float_value: 1
     }
   }
 }
 args {
-  key: "n_combinations"
+  key: "characterize_theta"
   value {
     arg_value {
-      float_value: 10.0
+      float_value: 1
     }
   }
 }
 args {
-  key: "n_library_circuits"
+  key: "characterize_phi"
   value {
     arg_value {
-      float_value: 22.0
+      float_value: 1
     }
   }
 }
 args {
-  key: "xatol"
+  key: "characterize_gamma"
   value {
     arg_value {
-      float_value: 0.005
+      float_value: 0
+    }
+  }
+}
+args {
+  key: "characterize_chi"
+  value {
+    arg_value {
+      float_value: 0
     }
   }
 }

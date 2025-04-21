@@ -16,6 +16,8 @@
 
 from cirq.testing.circuit_compare import (
     assert_circuits_with_terminal_measurements_are_equivalent,
+    assert_circuits_have_same_unitary_given_final_permutation,
+    assert_has_consistent_apply_channel,
     assert_has_consistent_apply_unitary,
     assert_has_consistent_apply_unitary_for_various_exponents,
     assert_has_diagram,
@@ -28,7 +30,10 @@ from cirq.testing.consistent_act_on import assert_all_implemented_act_on_effects
 
 from cirq.testing.consistent_channels import assert_consistent_channel, assert_consistent_mixture
 
-from cirq.testing.consistent_controlled_gate_op import assert_controlled_and_controlled_by_identical
+from cirq.testing.consistent_controlled_gate_op import (
+    assert_controlled_and_controlled_by_identical,
+    assert_controlled_unitary_consistent,
+)
 
 from cirq.testing.consistent_decomposition import (
     assert_decompose_ends_at_default_gateset,
@@ -105,3 +110,7 @@ from cirq.testing.routing_devices import (
 )
 
 from cirq.testing.sample_circuits import nonoptimal_toffoli_circuit
+
+from cirq.testing.sample_gates import PhaseUsingCleanAncilla, PhaseUsingDirtyAncilla
+
+from cirq.testing.consistent_unitary import assert_unitary_is_consistent

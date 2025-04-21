@@ -36,8 +36,8 @@ class QasmArgs(string.Formatter):
         self,
         precision: int = 10,
         version: str = '2.0',
-        qubit_id_map: Dict['cirq.Qid', str] = None,
-        meas_key_id_map: Dict[str, str] = None,
+        qubit_id_map: Optional[Dict['cirq.Qid', str]] = None,
+        meas_key_id_map: Optional[Dict[str, str]] = None,
     ) -> None:
         """Inits QasmArgs.
 
@@ -172,8 +172,8 @@ def qasm(
     if method is None:
         raise TypeError(f"object of type '{type(val)}' has no _qasm_ method.")
     raise TypeError(
-        "object of type '{}' does have a _qasm_ method, "
-        "but it returned NotImplemented or None.".format(type(val))
+        f"object of type '{type(val)}' does have a _qasm_ method, "
+        "but it returned NotImplemented or None."
     )
 
 

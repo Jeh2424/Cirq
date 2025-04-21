@@ -452,6 +452,7 @@ class SimulatesExpectationValues(metaclass=value.ABCMetaImplementAnyOneOf):
             ValueError if 'program' has terminal measurement(s) and
             'permit_terminal_measurements' is False.
         """
+        raise NotImplementedError
 
 
 class SimulatesFinalState(
@@ -959,7 +960,7 @@ def check_all_resolved(circuit):
         unresolved = [op for moment in circuit for op in moment if protocols.is_parameterized(op)]
         raise ValueError(
             'Circuit contains ops whose symbols were not specified in '
-            'parameter sweep. Ops: {}'.format(unresolved)
+            f'parameter sweep. Ops: {unresolved}'
         )
 
 

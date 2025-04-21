@@ -26,22 +26,6 @@ from dev_tools import shell_tools
 from dev_tools.env_tools import create_virtual_env
 
 
-def pytest_configure(config):
-    config.addinivalue_line("markers", "slow: mark tests as slow")
-
-
-def pytest_collection_modifyitems(config, items):
-    keywordexpr = config.option.keyword
-    markexpr = config.option.markexpr
-    if keywordexpr or markexpr:
-        return  # let pytest handle this
-
-    skip_slow_marker = pytest.mark.skip(reason='slow marker not selected')
-    for item in items:
-        if 'slow' in item.keywords:
-            item.add_marker(skip_slow_marker)
-
-
 @pytest.fixture(scope="session")
 def cloned_env(testrun_uid, worker_id):
     """Fixture to allow tests to run in a clean virtual env.

@@ -81,12 +81,17 @@ TestSpec = ModuleJsonTestSpec(
         'MEASUREMENT_KEY_SEPARATOR',
         'PointOptimizer',
         # Transformers
+        'DecompositionContext',
         'TransformerLogger',
         'TransformerContext',
         # Routing utilities
         'HardCodedInitialMapper',
-        'MappingManager',
         'LineInitialMapper',
+        'MappingManager',
+        'RouteCQC',
+        # Qubit Managers,
+        'SimpleQubitManager',
+        'GreedyQubitManager',
         # global objects
         'CONTROL_TAG',
         'PAULI_BASIS',

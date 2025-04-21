@@ -46,8 +46,6 @@ def test_op_identifier_subtypes():
 
 def test_op_id_str():
     op_id = OpIdentifier(cirq.XPowGate, cirq.LineQubit(0))
-    print(op_id)
-    print(repr(op_id))
     assert str(op_id) == "<class 'cirq.ops.common_gates.XPowGate'>(cirq.LineQubit(0),)"
     assert repr(op_id) == (
         "cirq.devices.noise_utils.OpIdentifier(cirq.ops.common_gates.XPowGate, cirq.LineQubit(0))"
@@ -62,6 +60,13 @@ def test_op_id_swap():
     assert cirq.CZ(q0, q1) not in swap_id
     assert cirq.CZ(q1, q0) not in base_id
     assert cirq.CZ(q1, q0) in swap_id
+
+
+def test_op_id_instance():
+    q0 = cirq.LineQubit.range(1)[0]
+    gate = cirq.SingleQubitCliffordGate.from_xz_map((cirq.X, False), (cirq.Z, False))
+    op_id = OpIdentifier(gate, q0)
+    cirq.testing.assert_equivalent_repr(op_id)
 
 
 @pytest.mark.parametrize(
